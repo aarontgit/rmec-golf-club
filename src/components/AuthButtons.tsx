@@ -2,11 +2,24 @@
 import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 
+const ALLOWED_EMAILS = [
+  "aaronbtiktin@gmail.com",
+  "luis@example.com",
+  "brian@example.com",
+  "0093520@gmail.com"
+];
+
 export default function AuthButtons({ user }: { user: any }) {
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const email = result.user.email;
+
+      if (!email || !ALLOWED_EMAILS.includes(email)) {
+        alert("You're not authorized to access RMEC Golf Club.");
+        await signOut(auth);
+      }
     } catch (error) {
       console.error("Login failed:", error);
     }

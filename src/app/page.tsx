@@ -1,7 +1,7 @@
 "use client";
 
 import { db } from "@/lib/firebaseClient";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import Podium from "@/components/Podium";
 import { Orbitron } from "next/font/google";
@@ -34,7 +34,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const fetchMatches = async () => {
-      const q = query(collection(db, "matches"), where("status", "==", "verified"));
+      const q = query(collection(db, "matches"), where("status", "==", "verified"), orderBy("date", "desc"));
       const snapshot = await getDocs(q);
       const matches = snapshot.docs.map((doc) => doc.data() as Match);
 
