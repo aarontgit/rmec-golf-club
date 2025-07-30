@@ -1,103 +1,137 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { db } from "@/lib/firebaseClient";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import Podium from "@/components/Podium";
+import { Orbitron } from "next/font/google";
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-orbitron",
+});
+
+type Match = {
+  players: string[];
+  scores: Record<string, number>;
+  status: "verified";
+  date: string;
+  course: string;
+};
+
+type PlayerRecord = {
+  name: string;
+  points: number;
+};
+
+const PLAYER_NAMES = ["aaron", "luis", "brian"];
+
+export default function LeaderboardPage() {
+  const [records, setRecords] = useState<Record<string, PlayerRecord>>({});
+  const [lastMatch, setLastMatch] = useState<Match | null>(null);
+  const [winner, setWinner] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMatches = async () => {
+      const q = query(collection(db, "matches"), where("status", "==", "verified"));
+      const snapshot = await getDocs(q);
+      const matches = snapshot.docs.map((doc) => doc.data() as Match);
+
+      const validMatches = matches.filter(
+        (match) =>
+          PLAYER_NAMES.every((p) => match.players.includes(p)) &&
+          match.players.length === 3
+      );
+
+      // Get last match by latest date (YYYY/MM/DD)
+      const sortedByDate = [...validMatches].sort((a, b) => b.date.localeCompare(a.date));
+      const latest = sortedByDate[0];
+      if (latest) {
+        setLastMatch(latest);
+        const scores = Object.entries(latest.scores).sort(([, a], [, b]) => a - b);
+        setWinner(scores[0][0]);
+      }
+
+      const totals: Record<string, PlayerRecord> = {
+        aaron: { name: "Aaron", points: 0 },
+        luis: { name: "Luis", points: 0 },
+        brian: { name: "Brian", points: 0 },
+      };
+
+      for (const match of validMatches) {
+        const sorted = Object.entries(match.scores).sort(([, a], [, b]) => a - b);
+        sorted.forEach(([name], idx) => {
+          if (!PLAYER_NAMES.includes(name)) return;
+          const points = idx === 0 ? 2 : idx === 1 ? 1 : 0;
+          totals[name].points += points;
+        });
+      }
+
+      setRecords(totals);
+    };
+
+    fetchMatches();
+  }, []);
+
+  const sortedPlayers = Object.values(records).sort((a, b) => b.points - a.points);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div
+      className="min-h-screen w-screen bg-cover bg-center bg-no-repeat bg-fixed flex flex-col items-center justify-center px-4 py-12"
+      style={{
+        backgroundImage: "url('/RmecGolfClubBackground.png')",
+      }}
+    >
+      {/* Match summary row */}
+      <div className="flex w-full justify-between px-4 md:px-24 text-sm md:text-base font-orbitron mb-6">
+        {/* Left side block */}
+        <div className="space-y-1 bg-black text-green-300 p-4 rounded-lg shadow-[0_0_15px_#00FF88]">
+          {lastMatch && (
+            <>
+              <p>
+                Last Played: <span className="text-white">{lastMatch.date}</span>
+              </p>
+              <p>
+                Course: <span className="text-white">{lastMatch.course}</span>
+              </p>
+              <p>
+                Winner: <span className="text-white capitalize">{winner}</span>
+              </p>
+            </>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Right side block */}
+        <div className="bg-black text-green-300 px-4 py-2 rounded-lg shadow-[0_0_15px_#00FF88] text-right self-start">
+          <p>
+            Next: <span className="text-white">Denver</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="relative flex flex-col items-center -mt-12">
+        {/* Podium */}
+        <Podium players={sortedPlayers} />
+
+        {/* Leaderboard table */}
+        <table className="absolute z-30 -bottom-5 w-[300px] text-base font-orbitron text-white rounded-xl overflow-hidden border-2 border-green-400 shadow-[0_0_20px_#00FFAA] backdrop-blur-md bg-black/40">
+          <thead className="bg-black border-b border-green-500 text-green-400 text-sm uppercase tracking-wider">
+            <tr>
+              <th className="px-6 py-3 text-left">Player</th>
+              <th className="px-6 py-3 text-right">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedPlayers.map((player, idx) => (
+              <tr key={player.name} className="border-b border-green-900/40 last:border-none">
+                <td className="px-6 py-3">{player.name}</td>
+                <td className="px-6 py-3 text-right text-green-300">{player.points}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
